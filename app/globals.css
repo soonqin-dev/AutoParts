@@ -1,1 +1,399 @@
 
+* { box-sizing: border-box; }
+
+:root {
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --dark: #111827;
+  --blue: #2563eb;
+  --danger: #dc2626;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+}
+
+button, input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.page {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 22px 16px 80px;
+}
+
+.hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 1.8px;
+  font-weight: 800;
+  color: var(--blue);
+  margin-bottom: 5px;
+}
+
+.hero h1 {
+  font-size: 28px;
+  line-height: 1.05;
+  margin: 0;
+  letter-spacing: -0.8px;
+}
+
+.hero p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.badge {
+  white-space: nowrap;
+  background: var(--dark);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 11px;
+  font-size: 12px;
+}
+
+.notice {
+  margin-bottom: 14px;
+  padding: 12px 13px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  color: #9ca3af;
+  font-size: 20px;
+}
+
+.search {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 15px;
+  padding: 15px 62px 15px 42px;
+  font-size: 16px;
+  outline: none;
+}
+
+.search:focus {
+  border-color: #9ca3af;
+}
+
+.clear {
+  position: absolute;
+  right: 9px;
+  border: 0;
+  background: #eef2f7;
+  color: #4b5563;
+  border-radius: 10px;
+  padding: 7px 9px;
+  font-size: 12px;
+}
+
+.addButton {
+  width: 100%;
+  border: 0;
+  background: var(--dark);
+  color: #fff;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-weight: 800;
+  font-size: 15px;
+  margin-bottom: 16px;
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  display: grid;
+  grid-template-columns: 94px 1fr;
+  gap: 12px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+}
+
+.thumb {
+  width: 94px;
+  height: 94px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #edf0f3;
+  border: 1px solid #e5e7eb;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 800;
+  color: #9ca3af;
+  letter-spacing: 1px;
+}
+
+.content {
+  min-width: 0;
+}
+
+.topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.price {
+  flex: none;
+  font-size: 17px;
+  font-weight: 850;
+}
+
+.serial {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.tag {
+  background: #eef2ff;
+  color: #3730a3;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.cardActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.deleteButton {
+  border: 0;
+  border-radius: 9px;
+  padding: 7px 10px;
+  background: #fff1f2;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.empty {
+  padding: 45px 20px;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed #cfd5dd;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: rgba(15, 23, 42, 0.52);
+  display: flex;
+  align-items: flex-end;
+}
+
+.sheet {
+  width: 100%;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  padding: 20px 16px calc(18px + env(safe-area-inset-bottom));
+}
+
+.sheetHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sheetHeader h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.sheetHeader p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.closeButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 0;
+  background: #eef1f5;
+  font-size: 24px;
+  line-height: 1;
+}
+
+form label {
+  display: block;
+  font-size: 13px;
+  font-weight: 750;
+  margin-bottom: 14px;
+}
+
+form label > input,
+.priceInput {
+  margin-top: 7px;
+}
+
+form input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 13px;
+  outline: none;
+  background: #fff;
+}
+
+form input:focus {
+  border-color: #9ca3af;
+}
+
+form small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  margin-top: 5px;
+}
+
+.priceInput {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.priceInput span {
+  padding-left: 13px;
+  font-weight: 800;
+}
+
+.priceInput input {
+  border: 0;
+  margin: 0;
+}
+
+.preview {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  margin: -2px 0 14px;
+}
+
+.formActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.formActions button {
+  flex: 1;
+  border-radius: 12px;
+  padding: 13px 14px;
+  font-weight: 800;
+}
+
+.cancelButton {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+}
+
+.saveButton {
+  border: 0;
+  background: var(--dark);
+  color: #fff;
+}
+
+@media (min-width: 700px) {
+  .overlay {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sheet {
+    width: min(94vw, 560px);
+    border-radius: 24px;
+    padding: 22px;
+  }
+
+  .list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
