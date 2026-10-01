@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "AutoParts Catalog",
-  description: "汽车零件资料查询工具"
+  title: "SalesGo — Mobile Sales Catalog & Quotation Tool",
+  description: "移动产品目录与报价工具。快速查找、展示和分享产品，生成专业报价 PDF。"
 };
 
 export default function RootLayout({ children }) {
