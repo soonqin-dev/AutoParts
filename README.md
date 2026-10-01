@@ -1,70 +1,115 @@
-# AutoParts — Mobile Sales Catalog & Quotation Tool
+# SalesGo
 
-## Local run
+**Mobile Sales Catalog & Quotation Tool · 移动产品目录与报价工具**
+
+A lightweight, mobile-first sales tool for businesses in any industry. Search
+products, show details, share a complete product card, and generate quotations.
+
+## Run locally
+
 ```bash
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000
+Open http://localhost:3000. Use `npm run build` for a production build.
 
 ## Deploy to Vercel
-1. Upload this project to GitHub.
-2. In Vercel, click Add New > Project.
-3. Import the GitHub repository.
-4. Framework should be detected as Next.js.
-5. Click Deploy.
 
-This demo stores data in browser LocalStorage.
-The next version can be upgraded to Supabase Database + Storage.
+Import the GitHub repository as a Next.js project and deploy. To update from a
+phone, unzip the release package, upload its `app` files into the repository's
+`app` directory, then upload `package.json` and `README.md` at the repository root.
+Commit the files; a connected Vercel project will deploy the update.
 
-## Sales workflow
+The tool uses Next.js 14, React, and LocalStorage. The repository name does not
+determine the displayed brand. All image processing and PDF generation run on
+the device; no server upload, WhatsApp API, or Supabase connection is required.
 
-- Tap a product card (or focus its name and press Enter) to view its photo,
-  name, product code, tags, and price. Close with ×, Escape, or the backdrop.
-- Share a product's photo and text using the device's file share sheet; choose
-  WhatsApp there. Image conversion happens locally and does not upload the photo.
-  The receiving app controls how it presents photo captions/text.
-  If file sharing is unsupported or fails, save the photo and open the WhatsApp
-  text link, then attach the saved photo manually. WhatsApp links cannot attach
-  local files. Products without a photo use text sharing / a WhatsApp text link.
-  Cancelling a share sheet does not trigger another share or navigation.
-- Add products to the quotation draft and see the total quantity above search.
-  Adding the same product again increases its quantity in the existing row.
-  Each row stores a product snapshot (id, code, name), quantity, unit price,
-  and line total. Photos remain in the catalog to avoid duplicating image data.
-- Tap **查看 / 生成报价** above search, or **查看报价清单** in product details.
-  Edit quantity and unit price, remove rows, enter customer name/phone, date,
+## Product catalog and editing
+
+- Search by product code, name, or tags. Tap a card or focus its name and press
+  Enter to view its photo, name, code, tags, and price.
+- Add, edit, or delete a product. Editing retains its ID and photo unless the
+  salesperson replaces/removes the photo. Cancelling discards form changes.
+- Prices must be nonnegative amounts with up to two decimal places.
+- Close details with ×, Escape, or the backdrop. The selected company's name
+  and logo appear when configured. Fresh installs have generic sample products;
+  existing products are never renamed or replaced with samples.
+
+## WebP image storage
+
+- Product uploads accept JPG/JPEG, PNG, and WebP, up to 12MB / 40 megapixels.
+- The browser decodes image orientation, fits the longest side within 1600px
+  without upscaling, and encodes WebP at quality 0.82. PNG transparency is kept.
+- Only the resulting WebP Data URL is saved. A progress state prevents saving
+  before conversion completes. Closing/reopening a form discards pending results.
+- Invalid, oversized, or unsupported images show an error; the previous photo
+  stays intact. Browsers without WebP encoding must use a supported browser;
+  the tool never silently stores PNG under a WebP filename.
+- Existing photos remain in their original format until replaced. Company logo
+  uploads (PNG/JPG/WebP, under 1MB) also convert to WebP.
+- LocalStorage has a browser-dependent capacity. Failed saves show a warning;
+  keep the page open until the data can be saved. Clearing browser data removes
+  local products and quotations.
+
+## WhatsApp product cards
+
+- Opening product details prepares one JPG card containing the product photo,
+  full name, product code, price, tags, and the company's name/logo if configured.
+  Products without photos use a clean placeholder. Long text wraps.
+- Tap **分享卡片到 WhatsApp** and choose WhatsApp in the system share sheet.
+  The file is prepared before the tap, preserving mobile user activation.
+- The share payload contains only the JPG. Product information is drawn into
+  that image, so WhatsApp cannot drop a separate caption or text payload.
+- **下载产品卡片** is always available when the card is ready. If native sharing
+  is unsupported or fails, download the JPG and send it as a photo in WhatsApp.
+  Cancelling the share sheet does not navigate to another app.
+- Use HTTPS and a current Safari/Chrome browser for native file sharing.
+  Automated browser checks verify the actual JPG/PDF file payloads; sending to
+  a real WhatsApp contact still needs a phone with WhatsApp installed.
+
+## Quotation workflow
+
+- Add products from details, then open **查看 / 生成报价** above search or
+  **查看报价清单** in details. Repeat additions increase the existing row's quantity.
+- Edit quantities/unit prices, remove rows, and enter customer name/phone, date,
   notes, and a fixed amount discount. Customer name is required; phone is optional.
-  Amounts are calculated in integer cents; discounts cannot exceed the subtotal.
-  Quantity is a positive integer, unit price is nonnegative with up to two decimal
-  places. Invalid in-progress edits disable PDF generation and do not overwrite
-  the last valid saved item values.
-- Expand **公司资料（用于 PDF）** to set the company name, contact information,
-  and optional logo (PNG/JPG/WebP, under 1MB). These settings stay on this device.
-- Tap **生成报价 PDF**, then **下载 PDF** or **分享 PDF**. A second tap for sharing
-  keeps the browser's user activation intact on mobile. Select WhatsApp in the
-  system share sheet. If PDF sharing is unsupported, download the file and attach
-  it as a document in WhatsApp. Changing any quotation field invalidates the
-  generated file; regenerate it before downloading/sharing.
-- PDF export runs entirely in the browser. jsPDF is loaded only on demand.
-  A4 pages include company logo/name/contact, quotation number/date, customer
-  information, product rows, quantity/unit price/line totals, subtotal/discount/
-  total, notes, and page numbers. Rows and notes paginate. Browser-rendered text
-  supports Chinese and other installed fonts; PDF pages are rasterized at 2×
-  resolution, so text is not selectable. No print dialog or server is required.
-- **新建报价** clears the current items/customer fields after confirmation and
-  creates a new quotation number/date while retaining company settings.
-- The draft uses the separate `autoparts_quotation_v1` LocalStorage key;
-  existing catalog data and its storage key are unchanged. Deleting a catalog
-  product does not remove its quotation snapshot. Storage failures are shown
-  on screen; unreadable draft data is preserved instead of overwritten.
-- Customer information, quotation fields, and company settings use
-  `autoparts_quotation_details_v1`. Phase 1 quotation rows load without migration.
+- Calculations use integer cents. Discounts cannot exceed the subtotal. Invalid
+  in-progress item edits disable export and retain the last valid saved values.
+- Company name starts empty and must be entered before PDF generation. Expand
+  **公司资料（用于报价与产品卡片）** to configure the company's name, contact, and logo.
+  SalesGo is the tool's brand; customer PDFs use the salesperson's company.
+- Tap **生成报价 PDF**, then **下载 PDF** or **分享 PDF**. If native PDF sharing is
+  unavailable, download and attach it as a document in WhatsApp. Edits invalidate
+  the generated file; regenerate before downloading/sharing.
+- A4 PDFs include company branding/contact, quotation number/date, customer,
+  product rows and amounts, subtotal/discount/total, notes, and page numbers.
+  Rows and notes paginate. Browser fonts support Chinese and other installed
+  fonts. Pages are rasterized at 2× resolution; text is not selectable. jsPDF
+  loads only when generating a PDF.
+- **新建报价** clears the current customer/items after confirmation and generates
+  a new number/date while retaining company settings. Editing/deleting a catalog
+  product does not rewrite a quotation's saved product snapshot or unit price.
 
-Use HTTPS (Vercel provides it) and a browser with file-sharing support for native
-photo/PDF sharing. Browser tests can verify file payloads; sending to a real
-WhatsApp contact needs a phone with WhatsApp installed.
+## LocalStorage migration
 
-Product editing and Supabase are not implemented. There is no inventory,
-checkout, payment, invoice, accounting, CRM, or order-management functionality.
+| Previous key | SalesGo key |
+| --- | --- |
+| `autoparts_catalog_vercel_demo_v1` | `salesgo_catalog_v1` |
+| `autoparts_quotation_v1` | `salesgo_quotation_v1` |
+| `autoparts_quotation_details_v1` | `salesgo_quotation_details_v1` |
+
+On first use at the **same website origin**, valid legacy data is copied into
+the corresponding new key. An existing SalesGo key always takes precedence,
+including an empty catalog/draft. Legacy keys stay untouched as backups.
+IDs, photos, quotation rows/prices, customer details, and company settings are
+retained. Only the old unused default company name (with no contact or logo)
+becomes empty; entered branding is preserved.
+
+Corrupt data or a failed migration is shown on screen and is never overwritten
+with samples or an empty draft. Storage capacity must accommodate the new copy
+and the retained backup. A different domain, protocol, or port has separate
+LocalStorage; automatic migration cannot read another origin's data.
+
+Supabase and login remain future work. This is a catalog and quotation tool;
+inventory, POS checkout, payments, invoices, accounting, and ERP are out of scope.
