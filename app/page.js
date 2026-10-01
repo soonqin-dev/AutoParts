@@ -35,6 +35,9 @@ export default function Home() {
   const [items, setItems] = useState([]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const imageReader = useRef(null);
   const [ready, setReady] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [quotationItems, setQuotationItems] = useState([]);
@@ -229,6 +232,10 @@ export default function Home() {
   }, [items, query]);
 
   function resetForm() {
+    if (imageReader.current?.readyState === FileReader.LOADING) imageReader.current.abort();
+    imageReader.current = null;
+    setImageLoading(false);
+    setEditingId(null);
     setSerial("");
     setName("");
     setTags("");
@@ -236,12 +243,28 @@ export default function Home() {
     setImage("");
   }
 
+  function editItem(item) {
+    resetForm();
+    setEditingId(item.id);
+    setSerial(item.serial);
+    setName(item.name);
+    setTags((item.tags || []).join(", "));
+    setPrice(String(item.price));
+    setImage(item.image || "");
+    setOpen(true);
+  }
+
+  function closeForm() {
+    resetForm();
+    setOpen(false);
+  }
+
   function addItem(e) {
     e.preventDefault();
-    if (!serial.trim() || !name.trim() || !price.trim()) return;
+    if (imageLoading || !serial.trim() || !name.trim() || !price.trim()) return;
 
     const newItem = {
-      id: makeId(),
+      id: editingId || makeId(),
       serial: serial.trim(),
       name: name.trim(),
       tags: tags
@@ -252,9 +275,10 @@ export default function Home() {
       image
     };
 
-    setItems((prev) => [newItem, ...prev]);
-    resetForm();
-    setOpen(false);
+    setItems((prev) => editingId
+      ? prev.map(item => item.id === editingId ? { ...item, ...newItem } : item)
+      : [newItem, ...prev]);
+    closeForm();
   }
 
   function deleteItem(id) {
@@ -263,10 +287,7 @@ export default function Home() {
   }
 
   function onImageChange(file) {
-    if (!file) {
-      setImage("");
-      return;
-    }
+    if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
       alert("Demo 版建议照片小于 2MB。正式版接 Supabase 后可放更大的图片。");
@@ -274,7 +295,19 @@ export default function Home() {
     }
 
     const reader = new FileReader();
-    reader.onload = () => setImage(reader.result);
+    if (imageReader.current?.readyState === FileReader.LOADING) imageReader.current.abort();
+    imageReader.current = reader;
+    setImageLoading(true);
+    reader.onload = () => {
+      if (imageReader.current !== reader) return;
+      setImage(reader.result);
+      setImageLoading(false);
+    };
+    reader.onerror = () => {
+      if (imageReader.current !== reader) return;
+      setImageLoading(false);
+      alert("照片读取失败，请重新选择。");
+    };
     reader.readAsDataURL(file);
   }
 
@@ -321,7 +354,7 @@ export default function Home() {
         )}
       </div>
 
-      <button className="addButton" onClick={() => setOpen(true)}>
+      <button className="addButton" onClick={() => { resetForm(); setOpen(true); }}>
         ＋ 上传货物
       </button>
 
@@ -369,6 +402,17 @@ export default function Home() {
                 )}
 
                 <div className="cardActions">
+                  <button
+                    type="button"
+                    className="textButton"
+                    aria-label={`编辑 ${item.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      editItem(item);
+                    }}
+                  >
+                    编辑
+                  </button>
                   <button
                     className="deleteButton"
                     onClick={(e) => {
@@ -466,14 +510,14 @@ export default function Home() {
       )}
 
       {open && (
-        <div className="overlay" onMouseDown={() => setOpen(false)}>
+        <div className="overlay" onMouseDown={closeForm}>
           <div className="sheet" onMouseDown={(e) => e.stopPropagation()}>
             <div className="sheetHeader">
               <div>
-                <h2>新增货物</h2>
-                <p>填写零件资料后保存</p>
+                <h2>{editingId ? "编辑货物" : "新增货物"}</h2>
+                <p>{editingId ? "修改产品资料后保存" : "填写零件资料后保存"}</p>
               </div>
-              <button className="closeButton" onClick={() => setOpen(false)}>
+              <button className="closeButton" aria-label="关闭货物表单" onClick={closeForm}>
                 ×
               </button>
             </div>
@@ -528,25 +572,32 @@ export default function Home() {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => onImageChange(e.target.files?.[0])}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    onImageChange(file);
+                  }}
                 />
               </label>
 
               {image && <img className="preview" src={image} alt="预览" />}
+              {image && <button type="button" className="textButton" onClick={() => {
+                if (imageReader.current?.readyState === FileReader.LOADING) imageReader.current.abort();
+                imageReader.current = null;
+                setImageLoading(false);
+                setImage("");
+              }}>移除照片</button>}
 
               <div className="formActions">
                 <button
                   type="button"
                   className="cancelButton"
-                  onClick={() => {
-                    resetForm();
-                    setOpen(false);
-                  }}
+                  onClick={closeForm}
                 >
                   取消
                 </button>
-                <button className="saveButton" type="submit">
-                  保存货物
+                <button className="saveButton" type="submit" disabled={imageLoading}>
+                  {imageLoading ? "正在读取照片…" : editingId ? "保存修改" : "保存货物"}
                 </button>
               </div>
             </form>
