@@ -1,6 +1,6 @@
 export function productShareText(item) {
-  return [item.name, `Product Code: ${item.serial}`, `Price: RM ${item.price}`,
-    `Tags: ${(item.tags || []).join(", ")}`].join("\n");
+  return [item.name, `*Product Code*: ${item.serial}`, `*Price*: RM ${item.price}`,
+    `*Tags*: ${(item.tags || []).join(", ")}`].join("\n");
 }
 
 export function whatsappLink(text) {
