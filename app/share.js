@@ -6,7 +6,6 @@ export function productShareText(item) {
     `*Tags*: ${(item.tags || []).map(tag => `\`${tag}\``).join(", ")}`
   ].join("\n");
 }
-}
 
 export function whatsappLink(text) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
