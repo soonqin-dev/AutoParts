@@ -4,13 +4,12 @@ import { useEffect, useState } from "react";
 import { MAX_QUANTITY, MAX_UNIT_PRICE, formatMoney, lineCents, moneyToCents,
   newQuotationDetails, quotationTotals } from "./quotation-utils";
 import { canShareFile, downloadFile } from "./share";
-
-const DETAILS_STORAGE_KEY = "autoparts_quotation_details_v1";
-const defaultCompany = { name: "AutoParts", contact: "", logo: "" };
+import { DEFAULT_COMPANY, DETAILS_KEY, readStoredJson, validDetails } from "./storage";
+import { imageToWebP } from "./images";
 
 export default function Quotation({ items, setItems, ready, error, onBack }) {
   const [details, setDetails] = useState(newQuotationDetails);
-  const [company, setCompany] = useState(defaultCompany);
+  const [company, setCompany] = useState(DEFAULT_COMPANY);
   const [metadataReady, setMetadataReady] = useState(false);
   const [storageError, setStorageError] = useState("");
   const [edits, setEdits] = useState({});
@@ -22,27 +21,21 @@ export default function Quotation({ items, setItems, ready, error, onBack }) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(DETAILS_STORAGE_KEY);
+      const saved = readStoredJson(DETAILS_KEY, validDetails, null);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (!["customerName", "phone", "number", "date", "notes", "discount"]
-          .every(key => typeof parsed?.details?.[key] === "string") ||
-          !["name", "contact", "logo"].every(key => typeof parsed?.company?.[key] === "string")) {
-          throw new Error("Invalid quotation details");
-        }
-        setDetails(parsed.details);
-        setCompany(parsed.company);
+        setDetails(saved.details);
+        setCompany(saved.company);
       }
       setMetadataReady(true);
-    } catch {
-      setStorageError("无法读取报价资料，请检查浏览器存储后刷新重试。原资料未被覆盖。");
+    } catch (err) {
+      setStorageError(`无法读取报价资料：${err.message || "请检查浏览器存储后刷新重试。原资料未被覆盖。"}`);
     }
   }, []);
 
   useEffect(() => {
     if (!metadataReady) return;
     try {
-      localStorage.setItem(DETAILS_STORAGE_KEY, JSON.stringify({ details, company }));
+      localStorage.setItem(DETAILS_KEY, JSON.stringify({ details, company }));
       setStorageError("");
     } catch {
       setStorageError("报价资料未能保存，刷新后可能丢失。请检查浏览器存储空间。");
@@ -107,19 +100,11 @@ export default function Quotation({ items, setItems, ready, error, onBack }) {
     }
     setLogoLoading(true);
     try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error("Logo 读取失败"));
-        reader.readAsDataURL(file);
-      });
-      const preview = new Image();
-      preview.src = dataUrl;
-      await preview.decode();
+      const dataUrl = await imageToWebP(file);
       setCompany(prev => ({ ...prev, logo: dataUrl }));
       setMessage("");
-    } catch {
-      setMessage("无法读取 Logo，请选择有效的图片文件。");
+    } catch (err) {
+      setMessage(err.message || "无法读取 Logo，请选择有效的图片文件。");
     } finally {
       setLogoLoading(false);
     }
@@ -177,7 +162,7 @@ export default function Quotation({ items, setItems, ready, error, onBack }) {
         </button>
       </div>
       <header className="quotationHeading">
-        <div className="eyebrow">QUOTATION</div>
+        <div className="eyebrow">SALESGO · QUOTATION</div>
         <h1>报价清单</h1>
         <p>编辑产品，填写客户资料，生成报价 PDF。</p>
       </header>
@@ -256,14 +241,18 @@ export default function Quotation({ items, setItems, ready, error, onBack }) {
           </section>
 
           <details className="quotationSection companySettings">
-            <summary>公司资料（用于 PDF）</summary>
+            <summary>公司资料（用于报价与产品卡片）</summary>
             <label>公司名称 *<input value={company.name} required maxLength={120}
               onInvalid={e => { e.currentTarget.closest("details").open = true; }}
               onChange={e => setCompany(prev => ({ ...prev, name: e.target.value }))} /></label>
             <label>公司电话 / 联系方式<input value={company.contact} maxLength={180}
               onChange={e => setCompany(prev => ({ ...prev, contact: e.target.value }))} placeholder="电话、Email 或地址" /></label>
-            <label>公司 Logo<input type="file" accept="image/png,image/jpeg,image/webp"
-              onChange={e => uploadLogo(e.target.files?.[0])} /><small>PNG、JPG 或 WebP，小于 1MB</small></label>
+            <label>公司 Logo<input type="file" accept="image/png,image/jpeg,image/webp,.jpg,.jpeg,.png,.webp"
+              onChange={e => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                uploadLogo(file);
+              }} /><small>PNG、JPG 或 WebP，小于 1MB，自动转换为 WebP。</small></label>
             {company.logo && <div className="companyLogoPreview">
               <img src={company.logo} alt="公司 Logo" />
               <button type="button" className="textButton" onClick={() => setCompany(prev => ({ ...prev, logo: "" }))}>移除 Logo</button>
