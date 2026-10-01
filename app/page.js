@@ -3,25 +3,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Quotation from "./Quotation";
 import { MAX_QUANTITY, MAX_UNIT_PRICE, lineCents, moneyToCents } from "./quotation-utils";
-import { canShareFile, downloadFile, photoFile, productShareText, whatsappLink } from "./share";
-
-const STORAGE_KEY = "autoparts_catalog_vercel_demo_v1";
-const QUOTATION_STORAGE_KEY = "autoparts_quotation_v1";
+import { canShareFile, downloadFile } from "./share";
+import { imageToWebP } from "./images";
+import { createProductCard } from "./product-card";
+import { CATALOG_KEY, QUOTATION_KEY, DETAILS_KEY, DEFAULT_COMPANY,
+  readStoredJson, validCatalog, validQuotation, validDetails } from "./storage";
 
 const samples = [
   {
     id: "sample-1",
-    serial: "AP-001",
-    name: "Toyota Vios Front Brake Pad",
-    tags: ["Toyota", "Vios", "Brake"],
+    serial: "P-001",
+    name: "Sample Product A",
+    tags: ["Sample", "Category A"],
     price: "85.00",
     image: ""
   },
   {
     id: "sample-2",
-    serial: "AP-002",
-    name: "Honda City Air Filter",
-    tags: ["Honda", "City", "Filter"],
+    serial: "P-002",
+    name: "Sample Product B",
+    tags: ["Sample", "Category B"],
     price: "35.00",
     image: ""
   }
@@ -37,7 +38,9 @@ export default function Home() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [imageLoading, setImageLoading] = useState(false);
-  const imageReader = useRef(null);
+  const imageUploadToken = useRef(0);
+  const [formError, setFormError] = useState("");
+  const [catalogError, setCatalogError] = useState("");
   const [ready, setReady] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [quotationItems, setQuotationItems] = useState([]);
@@ -45,7 +48,12 @@ export default function Home() {
   const [quotationError, setQuotationError] = useState("");
   const [detailMessage, setDetailMessage] = useState("");
   const [sharing, setSharing] = useState(false);
-  const [photoFallback, setPhotoFallback] = useState(false);
+  const [shareCompany, setShareCompany] = useState(DEFAULT_COMPANY);
+  const [companyReady, setCompanyReady] = useState(false);
+  const [companyError, setCompanyError] = useState("");
+  const [productCard, setProductCard] = useState(null);
+  const [cardGenerating, setCardGenerating] = useState(false);
+  const [cardAttempt, setCardAttempt] = useState(0);
   const [quotationOpen, setQuotationOpen] = useState(false);
   const detailDialog = useRef(null);
 
@@ -57,56 +65,68 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setItems(JSON.parse(saved));
-      } else {
-        setItems(samples);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(samples));
-      }
-    } catch {
-      setItems(samples);
+      setItems(readStoredJson(CATALOG_KEY, validCatalog, samples));
+      setReady(true);
+    } catch (err) {
+      setCatalogError(`无法读取产品资料：${err.message || "请检查浏览器存储后刷新重试。"}`);
     }
-    setReady(true);
   }, []);
 
   useEffect(() => {
     if (!ready) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    try {
+      localStorage.setItem(CATALOG_KEY, JSON.stringify(items));
+      setCatalogError("");
+    } catch {
+      setCatalogError("产品资料未能保存，刷新后可能丢失。请检查浏览器存储空间。");
+    }
   }, [items, ready]);
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(QUOTATION_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (!Array.isArray(parsed) || parsed.some((item) =>
-          !item?.product?.id || typeof item.product.serial !== "string" ||
-          typeof item.product.name !== "string" ||
-          !Number.isSafeInteger(item.quantity) || item.quantity < 1 ||
-          !Number.isFinite(item.unitPrice) || item.unitPrice < 0 ||
-          !Number.isFinite(item.lineTotal)
-        )) {
-          throw new Error("Invalid quotation data");
-        }
-        setQuotationItems(parsed);
-      }
+      setQuotationItems(readStoredJson(QUOTATION_KEY, validQuotation, []));
       setQuotationReady(true);
-    } catch {
+    } catch (err) {
       // Preserve the saved draft if it cannot be read.
-      setQuotationError("无法读取报价清单，请检查浏览器存储后刷新重试。");
+      setQuotationError(`无法读取报价清单：${err.message || "请检查浏览器存储后刷新重试。"}`);
     }
   }, []);
 
   useEffect(() => {
     if (!quotationReady) return;
     try {
-      localStorage.setItem(QUOTATION_STORAGE_KEY, JSON.stringify(quotationItems));
+      localStorage.setItem(QUOTATION_KEY, JSON.stringify(quotationItems));
       setQuotationError("");
     } catch {
       setQuotationError("报价清单未能保存到浏览器，刷新后可能丢失。请检查存储空间。");
     }
   }, [quotationItems, quotationReady]);
+
+  function refreshCompany() {
+    try {
+      const saved = readStoredJson(DETAILS_KEY, validDetails, null);
+      setShareCompany(saved?.company || DEFAULT_COMPANY);
+      setCompanyReady(true);
+      setCompanyError("");
+    } catch (err) {
+      setCompanyReady(false);
+      setCompanyError(`无法读取公司资料：${err.message || "请检查浏览器存储后刷新重试。"}`);
+    }
+  }
+
+  useEffect(() => { refreshCompany(); }, []);
+
+  useEffect(() => {
+    if (!selectedProduct || !companyReady) return;
+    let cancelled = false;
+    setCardGenerating(true);
+    setProductCard(null);
+    createProductCard(selectedProduct, shareCompany)
+      .then(file => { if (!cancelled) setProductCard(file); })
+      .catch(err => { if (!cancelled) setDetailMessage(`产品卡片生成失败：${err.message || "请重试。"}`); })
+      .finally(() => { if (!cancelled) setCardGenerating(false); });
+    return () => { cancelled = true; };
+  }, [selectedProduct, shareCompany, companyReady, cardAttempt]);
 
   useEffect(() => {
     if (!selectedProduct) return;
@@ -123,62 +143,27 @@ export default function Home() {
 
   function openProductDetail(item) {
     setDetailMessage("");
-    setPhotoFallback(false);
+    setProductCard(null);
+    refreshCompany();
     setSelectedProduct(item);
   }
 
-  async function shareProduct(item) {
-    const text = productShareText(item);
+  async function shareProductCard() {
+    if (!productCard || sharing) return;
     setDetailMessage("");
-    setPhotoFallback(false);
-
-    if (item.image) {
-      let file;
-      try {
-        // LocalStorage images can be converted synchronously, preserving user activation.
-        file = photoFile(item);
-      } catch (err) {
-        setDetailMessage(err.message || "照片读取失败，请重新上传。");
-        return;
-      }
-      if (!canShareFile(file)) {
-        setPhotoFallback(true);
-        setDetailMessage("此浏览器不能直接分享照片。请先保存照片，再在 WhatsApp 中附加照片发送。");
-        return;
-      }
-      setSharing(true);
-      try {
-        await navigator.share({ files: [file], text });
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          setPhotoFallback(true);
-          setDetailMessage("照片分享未完成。请先保存照片，再在 WhatsApp 中附加照片发送。");
-        }
-      } finally {
-        setSharing(false);
-      }
+    if (!canShareFile(productCard)) {
+      setDetailMessage("此浏览器无法直接分享卡片。请下载产品卡片，再在 WhatsApp 中选择这张图片发送。");
       return;
     }
-
-    if (typeof navigator.share === "function") {
-      setSharing(true);
-      try {
-        await navigator.share({ text });
-        return;
-      } catch (error) {
-        // Cancelling the share sheet should not open another app.
-        if (error.name === "AbortError") return;
-      } finally {
-        setSharing(false);
-      }
+    setSharing(true);
+    try {
+      // The prepared JPG contains all product details, with no separate caption to lose.
+      await navigator.share({ files: [productCard] });
+    } catch (err) {
+      if (err.name !== "AbortError") setDetailMessage("卡片分享未完成。请下载产品卡片后在 WhatsApp 中发送。");
+    } finally {
+      setSharing(false);
     }
-
-    window.location.href = whatsappLink(text);
-  }
-
-  function downloadProductPhoto(item) {
-    try { downloadFile(photoFile(item)); }
-    catch (err) { setDetailMessage(err.message || "照片下载失败，请重新上传。"); }
   }
 
   function viewQuotation() {
@@ -232,9 +217,9 @@ export default function Home() {
   }, [items, query]);
 
   function resetForm() {
-    if (imageReader.current?.readyState === FileReader.LOADING) imageReader.current.abort();
-    imageReader.current = null;
+    imageUploadToken.current += 1;
     setImageLoading(false);
+    setFormError("");
     setEditingId(null);
     setSerial("");
     setName("");
@@ -263,6 +248,12 @@ export default function Home() {
     e.preventDefault();
     if (imageLoading || !serial.trim() || !name.trim() || !price.trim()) return;
 
+    const priceCents = moneyToCents(price.trim().replace(/^\./, "0."));
+    if (priceCents === null || priceCents / 100 > MAX_UNIT_PRICE) {
+      setFormError("请输入有效的非负价格，最多两位小数，且不超过 RM 9,999,999.99。");
+      return;
+    }
+
     const newItem = {
       id: editingId || makeId(),
       serial: serial.trim(),
@@ -271,7 +262,7 @@ export default function Home() {
         .split(",")
         .map((x) => x.trim())
         .filter(Boolean),
-      price: Number(price.replace(/[^\d.]/g, "") || 0).toFixed(2),
+      price: (priceCents / 100).toFixed(2),
       image
     };
 
@@ -282,38 +273,31 @@ export default function Home() {
   }
 
   function deleteItem(id) {
-    if (!window.confirm("确定删除这项货物资料吗？")) return;
+    if (!window.confirm("确定删除这个产品吗？")) return;
     setItems((prev) => prev.filter((x) => x.id !== id));
   }
 
-  function onImageChange(file) {
+  async function onImageChange(file) {
     if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Demo 版建议照片小于 2MB。正式版接 Supabase 后可放更大的图片。");
-      return;
-    }
-
-    const reader = new FileReader();
-    if (imageReader.current?.readyState === FileReader.LOADING) imageReader.current.abort();
-    imageReader.current = reader;
+    const token = ++imageUploadToken.current;
     setImageLoading(true);
-    reader.onload = () => {
-      if (imageReader.current !== reader) return;
-      setImage(reader.result);
-      setImageLoading(false);
-    };
-    reader.onerror = () => {
-      if (imageReader.current !== reader) return;
-      setImageLoading(false);
-      alert("照片读取失败，请重新选择。");
-    };
-    reader.readAsDataURL(file);
+    setFormError("");
+    try {
+      const converted = await imageToWebP(file);
+      if (imageUploadToken.current === token) setImage(converted);
+    } catch (err) {
+      if (imageUploadToken.current === token) setFormError(err.message || "图片转换失败，请重试。");
+    } finally {
+      if (imageUploadToken.current === token) setImageLoading(false);
+    }
   }
 
   if (quotationOpen) {
     return <Quotation items={quotationItems} setItems={setQuotationItems}
-      ready={quotationReady} error={quotationError} onBack={() => setQuotationOpen(false)} />;
+      ready={quotationReady} error={quotationError} onBack={() => {
+        refreshCompany();
+        setQuotationOpen(false);
+      }} />;
   }
 
   return (
@@ -321,14 +305,15 @@ export default function Home() {
       <section className="hero">
         <div>
           <div className="eyebrow">SALES TOOL</div>
-          <h1>AutoParts Catalog</h1>
+          <h1>SalesGo</h1>
           <p>Mobile Sales Catalog &amp; Quotation Tool</p>
+          <p>移动产品目录与报价工具</p>
         </div>
-        <div className="badge">{items.length} 项货物</div>
+        <div className="badge">{items.length} 项产品</div>
       </section>
 
       <div className="notice">
-        当前为 Vercel Demo。资料暂存在这台手机 / 浏览器里，正式版会改成 Supabase 云端同步。
+        产品和报价保存在这台设备的浏览器中。
       </div>
 
       <div className="quotationSummary" role="status" aria-live="polite">
@@ -338,6 +323,8 @@ export default function Home() {
         </button>
       </div>
       {quotationError && <p className="quotationError" role="alert">{quotationError}</p>}
+      {catalogError && <p className="quotationError" role="alert">{catalogError}</p>}
+      {companyError && <p className="quotationError" role="alert">{companyError}</p>}
 
       <div className="searchWrap">
         <span className="searchIcon">⌕</span>
@@ -345,7 +332,8 @@ export default function Home() {
           className="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="搜索序号、名称、标签..."
+          placeholder="搜索产品编号、名称、标签..."
+          aria-label="搜索产品"
         />
         {query && (
           <button className="clear" onClick={() => setQuery("")}>
@@ -354,13 +342,13 @@ export default function Home() {
         )}
       </div>
 
-      <button className="addButton" onClick={() => { resetForm(); setOpen(true); }}>
-        ＋ 上传货物
+      <button className="addButton" disabled={!ready} onClick={() => { resetForm(); setOpen(true); }}>
+        ＋ 新增产品
       </button>
 
       <section className="list">
         {filtered.length === 0 ? (
-          <div className="empty">没有找到符合的货物。</div>
+          <div className="empty">{ready ? "没有找到符合的产品。" : catalogError ? "产品资料暂时无法读取。" : "正在读取产品资料…"}</div>
         ) : (
           filtered.map((item) => (
             <article className="card" key={item.id} onClick={() => openProductDetail(item)}>
@@ -389,7 +377,7 @@ export default function Home() {
                   <div className="price">RM {item.price}</div>
                 </div>
 
-                <div className="serial">序号：{item.serial}</div>
+                <div className="serial">产品编号：{item.serial}</div>
 
                 {!!item.tags?.length && (
                   <div className="tags">
@@ -457,6 +445,11 @@ export default function Home() {
             </button>
           </div>
 
+          {(shareCompany.name || shareCompany.logo) && <div className="detailCompany">
+            {shareCompany.logo && <img src={shareCompany.logo} alt="公司 Logo" />}
+            {shareCompany.name && <span>{shareCompany.name}</span>}
+          </div>}
+
           <div className="detailImage">
             {selectedProduct.image ? (
               <img src={selectedProduct.image} alt={selectedProduct.name} />
@@ -479,10 +472,10 @@ export default function Home() {
             <button
               type="button"
               className="whatsappButton"
-              disabled={sharing}
-              onClick={() => shareProduct(selectedProduct)}
+              disabled={sharing || cardGenerating || !companyReady}
+              onClick={() => productCard ? shareProductCard() : setCardAttempt(value => value + 1)}
             >
-              {sharing ? "正在打开分享…" : "分享到 WhatsApp"}
+              {sharing ? "正在打开分享…" : cardGenerating ? "正在准备产品卡片…" : productCard ? "分享卡片到 WhatsApp" : "重新生成产品卡片"}
             </button>
             <button
               type="button"
@@ -493,15 +486,10 @@ export default function Home() {
               ＋ 加入报价清单
             </button>
           </div>
+          {productCard && <button type="button" className="cardDownloadButton textButton"
+            onClick={() => downloadFile(productCard)} disabled={sharing}>下载产品卡片</button>}
           <p className="detailMessage" role="status" aria-live="polite">{detailMessage}</p>
-          {photoFallback && <div className="photoFallbackActions">
-            <button type="button" className="cancelButton" onClick={() => downloadProductPhoto(selectedProduct)}>
-              保存产品照片
-            </button>
-            <a href={whatsappLink(productShareText(selectedProduct))} target="_blank" rel="noopener noreferrer">
-              打开 WhatsApp（文字）
-            </a>
-          </div>}
+          {companyError && <p className="quotationError" role="alert">{companyError}</p>}
           {quotationCount > 0 && <button type="button" className="viewQuotationButton" onClick={viewQuotation}>
             查看报价清单（{quotationCount} 件） →
           </button>}
@@ -514,21 +502,21 @@ export default function Home() {
           <div className="sheet" onMouseDown={(e) => e.stopPropagation()}>
             <div className="sheetHeader">
               <div>
-                <h2>{editingId ? "编辑货物" : "新增货物"}</h2>
-                <p>{editingId ? "修改产品资料后保存" : "填写零件资料后保存"}</p>
+                <h2>{editingId ? "编辑产品" : "新增产品"}</h2>
+                <p>{editingId ? "修改产品资料后保存" : "填写产品资料后保存"}</p>
               </div>
-              <button className="closeButton" aria-label="关闭货物表单" onClick={closeForm}>
+              <button className="closeButton" aria-label="关闭产品表单" onClick={closeForm}>
                 ×
               </button>
             </div>
 
             <form onSubmit={addItem}>
               <label>
-                序号 *
+                产品编号 *
                 <input
                   value={serial}
                   onChange={(e) => setSerial(e.target.value)}
-                  placeholder="例如 AP-003"
+                  placeholder="例如 P-003"
                   required
                 />
               </label>
@@ -538,7 +526,7 @@ export default function Home() {
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="例如 Toyota Altis Oil Filter"
+                  placeholder="例如 Sample Product C"
                   required
                 />
               </label>
@@ -548,13 +536,13 @@ export default function Home() {
                 <input
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
-                  placeholder="Toyota, Altis, Filter"
+                  placeholder="分类, 材质, 款式"
                 />
                 <small>多个标签使用英文逗号分开</small>
               </label>
 
               <label>
-                报价 *
+                价格 *
                 <div className="priceInput">
                   <span>RM</span>
                   <input
@@ -571,22 +559,24 @@ export default function Home() {
                 照片
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     e.target.value = "";
                     onImageChange(file);
                   }}
                 />
+                <small>JPG、JPEG、PNG 或 WebP，最大 12MB。保存时自动压缩为 WebP。</small>
               </label>
 
               {image && <img className="preview" src={image} alt="预览" />}
               {image && <button type="button" className="textButton" onClick={() => {
-                if (imageReader.current?.readyState === FileReader.LOADING) imageReader.current.abort();
-                imageReader.current = null;
+                imageUploadToken.current += 1;
                 setImageLoading(false);
+                setFormError("");
                 setImage("");
               }}>移除照片</button>}
+              {formError && <p className="quotationError" role="alert">{formError}</p>}
 
               <div className="formActions">
                 <button
@@ -597,7 +587,7 @@ export default function Home() {
                   取消
                 </button>
                 <button className="saveButton" type="submit" disabled={imageLoading}>
-                  {imageLoading ? "正在读取照片…" : editingId ? "保存修改" : "保存货物"}
+                  {imageLoading ? "正在转换图片…" : editingId ? "保存修改" : "保存产品"}
                 </button>
               </div>
             </form>
