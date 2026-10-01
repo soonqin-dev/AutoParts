@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Quotation from "./Quotation";
+import { MAX_QUANTITY, MAX_UNIT_PRICE, lineCents, moneyToCents } from "./quotation-utils";
+import { canShareFile, downloadFile, photoFile, productShareText, whatsappLink } from "./share";
 
 const STORAGE_KEY = "autoparts_catalog_vercel_demo_v1";
 const QUOTATION_STORAGE_KEY = "autoparts_quotation_v1";
@@ -39,6 +42,8 @@ export default function Home() {
   const [quotationError, setQuotationError] = useState("");
   const [detailMessage, setDetailMessage] = useState("");
   const [sharing, setSharing] = useState(false);
+  const [photoFallback, setPhotoFallback] = useState(false);
+  const [quotationOpen, setQuotationOpen] = useState(false);
   const detailDialog = useRef(null);
 
   const [serial, setSerial] = useState("");
@@ -115,18 +120,43 @@ export default function Home() {
 
   function openProductDetail(item) {
     setDetailMessage("");
+    setPhotoFallback(false);
     setSelectedProduct(item);
   }
 
   async function shareProduct(item) {
-    const text = [
-      item.name,
-      `Product Code: ${item.serial}`,
-      `Price: RM ${item.price}`,
-      `Tags: ${(item.tags || []).join(", ")}`
-    ].join("\n");
-
+    const text = productShareText(item);
     setDetailMessage("");
+    setPhotoFallback(false);
+
+    if (item.image) {
+      let file;
+      try {
+        // LocalStorage images can be converted synchronously, preserving user activation.
+        file = photoFile(item);
+      } catch (err) {
+        setDetailMessage(err.message || "照片读取失败，请重新上传。");
+        return;
+      }
+      if (!canShareFile(file)) {
+        setPhotoFallback(true);
+        setDetailMessage("此浏览器不能直接分享照片。请先保存照片，再在 WhatsApp 中附加照片发送。");
+        return;
+      }
+      setSharing(true);
+      try {
+        await navigator.share({ files: [file], text });
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          setPhotoFallback(true);
+          setDetailMessage("照片分享未完成。请先保存照片，再在 WhatsApp 中附加照片发送。");
+        }
+      } finally {
+        setSharing(false);
+      }
+      return;
+    }
+
     if (typeof navigator.share === "function") {
       setSharing(true);
       try {
@@ -140,13 +170,28 @@ export default function Home() {
       }
     }
 
-    window.location.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.location.href = whatsappLink(text);
+  }
+
+  function downloadProductPhoto(item) {
+    try { downloadFile(photoFile(item)); }
+    catch (err) { setDetailMessage(err.message || "照片下载失败，请重新上传。"); }
+  }
+
+  function viewQuotation() {
+    setSelectedProduct(null);
+    setQuotationOpen(true);
   }
 
   function addToQuotation(item) {
     const unitPrice = Number(item.price);
-    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+    if (moneyToCents(item.price) === null || unitPrice > MAX_UNIT_PRICE) {
       setDetailMessage("产品价格无效，无法加入报价清单。");
+      return;
+    }
+
+    if (quotationItems.some(line => line.product.id === item.id && line.quantity >= MAX_QUANTITY)) {
+      setDetailMessage("此产品的数量已达到上限，请到报价清单调整。");
       return;
     }
 
@@ -157,7 +202,7 @@ export default function Home() {
           ? {
               ...line,
               quantity: line.quantity + 1,
-              lineTotal: Math.round((line.quantity + 1) * line.unitPrice * 100) / 100
+              lineTotal: lineCents({ ...line, quantity: line.quantity + 1 }) / 100
             }
           : line);
       }
@@ -166,7 +211,7 @@ export default function Home() {
         product: { id: item.id, serial: item.serial, name: item.name },
         quantity: 1,
         unitPrice,
-        lineTotal: Math.round(unitPrice * 100) / 100
+        lineTotal: moneyToCents(item.price) / 100
       }];
     });
     setDetailMessage(`已加入报价清单（共 ${quotationCount + 1} 件）。`);
@@ -233,6 +278,11 @@ export default function Home() {
     reader.readAsDataURL(file);
   }
 
+  if (quotationOpen) {
+    return <Quotation items={quotationItems} setItems={setQuotationItems}
+      ready={quotationReady} error={quotationError} onBack={() => setQuotationOpen(false)} />;
+  }
+
   return (
     <main className="page">
       <section className="hero">
@@ -249,7 +299,10 @@ export default function Home() {
       </div>
 
       <div className="quotationSummary" role="status" aria-live="polite">
-        报价清单：<strong>{quotationCount} 件</strong>
+        <button type="button" className="quotationCartButton" disabled={!quotationReady} onClick={viewQuotation}>
+          <span>报价清单：<strong>{quotationCount} 件</strong></span>
+          <span>查看 / 生成报价 →</span>
+        </button>
       </div>
       {quotationError && <p className="quotationError" role="alert">{quotationError}</p>}
 
@@ -397,6 +450,17 @@ export default function Home() {
             </button>
           </div>
           <p className="detailMessage" role="status" aria-live="polite">{detailMessage}</p>
+          {photoFallback && <div className="photoFallbackActions">
+            <button type="button" className="cancelButton" onClick={() => downloadProductPhoto(selectedProduct)}>
+              保存产品照片
+            </button>
+            <a href={whatsappLink(productShareText(selectedProduct))} target="_blank" rel="noopener noreferrer">
+              打开 WhatsApp（文字）
+            </a>
+          </div>}
+          {quotationCount > 0 && <button type="button" className="viewQuotationButton" onClick={viewQuotation}>
+            查看报价清单（{quotationCount} 件） →
+          </button>}
           {quotationError && <p className="quotationError" role="alert">{quotationError}</p>}
         </dialog>
       )}
