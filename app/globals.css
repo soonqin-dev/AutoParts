@@ -1,6 +1,17 @@
 
 * { box-sizing: border-box; }
 
+.accountPage { max-width: 600px; }
+.accountCard { background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; }
+.accountCard form { display: grid; gap: 12px; margin: 20px 0; }
+.accountCard input { width: 100%; min-width: 0; padding: 12px; border: 1px solid #9ca3af; border-radius: 8px; }
+.accountCard button { padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; }
+.accountCard button[type="submit"], .accountTabs button[aria-pressed="true"] { background: #2563eb; color: white; }
+.accountCard button:disabled { opacity: .55; cursor: wait; }
+.accountTabs { display: flex; flex-wrap: wrap; gap: 10px; }
+.accountError { color: #991b1b; background: #fee2e2; padding: 12px; border-radius: 8px; overflow-wrap: anywhere; }
+.accountCard p { line-height: 1.6; overflow-wrap: anywhere; }
+
 :root {
   --bg: #f4f6f8;
   --card: #ffffff;

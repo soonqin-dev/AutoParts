@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import Quotation from "./Quotation";
 import { MAX_QUANTITY, MAX_UNIT_PRICE, lineCents, moneyToCents } from "./quotation-utils";
 import { canShareFile, downloadFile } from "./share";
@@ -306,6 +307,7 @@ export default function Home() {
         <div>
           <div className="eyebrow">SALES TOOL</div>
           <h1>SalesGo</h1>
+          <p><Link href="/account">公司账号 · 注册 / 登录</Link></p>
           <p>Mobile Sales Catalog &amp; Quotation Tool</p>
           <p>移动产品目录与报价工具</p>
         </div>

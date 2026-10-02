@@ -129,11 +129,31 @@ or service-role key in a `NEXT_PUBLIC_` variable.
 
 Run `npm run check:supabase` to verify the Auth endpoint accepts the connection
 details. This read-only check does not create users or modify database data.
-The browser client utility is in `lib/supabase/client.js` for the upcoming login
-and cloud-data features. Those features are not active yet: products, quotation
-drafts, and company settings still use LocalStorage until migration is implemented.
-Company tables, explicit grants, RLS policies, storage policies, and session
-refresh middleware must be implemented before enabling cloud features.
+The browser client utility is in `lib/supabase/client.js`. `/account` supports
+email/password registration, login, verification email resend, company creation,
+membership display, and device-local sign-out. Apply
+`supabase/migrations/202610030001_company_accounts.sql` once in SQL Editor before
+using company creation. Do not rerun the migration after successful application.
+Set Auth Site URL to the production origin and allow these exact Redirect URLs:
+`https://salesgo-tool.vercel.app/auth/callback` and
+`http://localhost:3000/auth/callback` for local testing. Keep email confirmation
+enabled. PKCE verification links should be opened in the registration browser;
+if opened elsewhere, try password login after confirming the email.
+
+The current Auth implementation is browser-only; it does not authorize server
+routes with cookies. Company reads and creation are authorized by Supabase Auth,
+table grants, RLS, and the limited `create_company` RPC, not UI state. No secret
+key is used. Each account can create one company; repeated requests return the
+existing company without reactivating a disabled membership. Members can read
+their own active membership and its company only. Invitations, roster management,
+company editing, password recovery, quotas, and billing are not implemented yet.
+
+Products, photos, quotation drafts, and quotation company branding remain in
+LocalStorage and are not partitioned by signed-in user. Sign-out does not erase
+these records; do not treat shared-device local data as private company data.
+Cloud product/quotation migration and Storage policies are a separate next step.
+Any future server-protected pages will also need server session validation and
+session refresh middleware before deployment.
 
 This is a catalog and quotation tool;
 inventory, POS checkout, payments, invoices, accounting, and ERP are out of scope.
