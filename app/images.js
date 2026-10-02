@@ -11,10 +11,17 @@ export async function loadImage(source) {
 }
 
 export function canvasBlob(canvas, type, quality) {
-  return new Promise((resolve, reject) => canvas.toBlob(blob => {
-    if (!blob || blob.type !== type) reject(new Error(`此浏览器不支持 ${type === "image/webp" ? "WebP" : "JPG"} 转换，请使用最新版 Safari 或 Chrome。`));
-    else resolve(blob);
-  }, type, quality));
+  return new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob(blob => {
+        if (!blob || !blob.size) reject(new Error("图片处理失败，请尝试较小的图片或重新打开页面。"));
+        else if (blob.type !== type) reject(new Error("浏览器无法生成所需的图片格式。"));
+        else resolve(blob);
+      }, type, quality);
+    } catch {
+      reject(new Error("图片处理失败，请尝试较小的图片或重新打开页面。"));
+    }
+  });
 }
 
 function blobDataUrl(blob) {
@@ -26,10 +33,12 @@ function blobDataUrl(blob) {
   });
 }
 
-export async function imageToWebP(file) {
+export async function prepareUploadImage(file) {
   const accepted = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-  if (!accepted.includes(file.type) && !(!file.type && /\.(jpe?g|png|webp)$/i.test(file.name))) {
-    throw new Error("请选择 JPG、JPEG、PNG 或 WebP 图片。");
+  const type = (file.type || "").toLowerCase();
+  const isHeic = /^image\/(heic|heif)(-sequence)?$/.test(type) || /\.(heic|heif)$/i.test(file.name);
+  if (!isHeic && !accepted.includes(type) && !(!type && /\.(jpe?g|png|webp)$/i.test(file.name))) {
+    throw new Error("请选择 JPG、PNG、WebP 或手机拍摄的 HEIC 图片。");
   }
   if (file.size > MAX_IMAGE_BYTES) throw new Error("图片不能超过 12MB，请选择较小的图片。");
   const source = URL.createObjectURL(file);
@@ -37,7 +46,11 @@ export async function imageToWebP(file) {
   try {
     let image;
     try { image = await loadImage(source); }
-    catch { throw new Error("无法读取图片，请选择有效的 JPG、PNG 或 WebP 图片。"); }
+    catch {
+      throw new Error(isHeic
+        ? "此浏览器无法读取 HEIC/HEIF 照片，请先导出为 JPG，或使用手机截图后上传。"
+        : "无法读取这张图片，请尝试较小的 JPG、PNG 图片或手机截图。");
+    }
     if (image.naturalWidth * image.naturalHeight > MAX_IMAGE_PIXELS) {
       throw new Error("图片分辨率过大，请先缩小至 4000 万像素以内。");
     }
@@ -48,7 +61,21 @@ export async function imageToWebP(file) {
     if (!ctx) throw new Error("浏览器无法处理图片，请换用 Safari 或 Chrome。");
     // Modern browser decoding applies EXIF orientation; keep the transparent canvas for PNG alpha.
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const blob = await canvasBlob(canvas, "image/webp", 0.82);
+    let blob;
+    try {
+      blob = await canvasBlob(canvas, "image/webp", 0.82);
+    } catch {
+      // Canvas may return PNG when WebP encoding is unavailable (including on Safari).
+      // Keep potentially transparent sources as PNG; ordinary photos can use JPEG.
+      const isJpeg = /^image\/jpe?g$/.test(type) || (!type && /\.jpe?g$/i.test(file.name));
+      const fallbackType = isJpeg || isHeic ? "image/jpeg" : "image/png";
+      try {
+        blob = await canvasBlob(canvas, fallbackType, 0.82);
+      } catch (err) {
+        if (fallbackType === "image/png") throw err;
+        blob = await canvasBlob(canvas, "image/png");
+      }
+    }
     return await blobDataUrl(blob);
   } finally {
     URL.revokeObjectURL(source);

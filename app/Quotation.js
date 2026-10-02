@@ -5,7 +5,7 @@ import { MAX_QUANTITY, MAX_UNIT_PRICE, formatMoney, lineCents, moneyToCents,
   newQuotationDetails, quotationTotals } from "./quotation-utils";
 import { canShareFile, downloadFile } from "./share";
 import { DEFAULT_COMPANY, DETAILS_KEY, readStoredJson, validDetails } from "./storage";
-import { imageToWebP } from "./images";
+import { prepareUploadImage } from "./images";
 
 export default function Quotation({ items, setItems, ready, error, onBack }) {
   const [details, setDetails] = useState(newQuotationDetails);
@@ -94,13 +94,13 @@ export default function Quotation({ items, setItems, ready, error, onBack }) {
 
   async function uploadLogo(file) {
     if (!file) return;
-    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 1024 * 1024) {
-      setMessage("公司 Logo 请使用小于 1MB 的 PNG、JPG 或 WebP 图片。");
+    if (file.size > 1024 * 1024) {
+      setMessage("公司 Logo 请使用不超过 1MB 的图片。");
       return;
     }
     setLogoLoading(true);
     try {
-      const dataUrl = await imageToWebP(file);
+      const dataUrl = await prepareUploadImage(file);
       setCompany(prev => ({ ...prev, logo: dataUrl }));
       setMessage("");
     } catch (err) {
@@ -247,12 +247,12 @@ export default function Quotation({ items, setItems, ready, error, onBack }) {
               onChange={e => setCompany(prev => ({ ...prev, name: e.target.value }))} /></label>
             <label>公司电话 / 联系方式<input value={company.contact} maxLength={180}
               onChange={e => setCompany(prev => ({ ...prev, contact: e.target.value }))} placeholder="电话、Email 或地址" /></label>
-            <label>公司 Logo<input type="file" accept="image/png,image/jpeg,image/webp,.jpg,.jpeg,.png,.webp"
+            <label>公司 Logo<input type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
               onChange={e => {
                 const file = e.target.files?.[0];
                 e.target.value = "";
                 uploadLogo(file);
-              }} /><small>PNG、JPG 或 WebP，小于 1MB，自动转换为 WebP。</small></label>
+              }} /><small>PNG、JPG、WebP 或 HEIC，不超过 1MB，自动选择兼容格式；HEIC 需浏览器支持读取。</small></label>
             {company.logo && <div className="companyLogoPreview">
               <img src={company.logo} alt="公司 Logo" />
               <button type="button" className="textButton" onClick={() => setCompany(prev => ({ ...prev, logo: "" }))}>移除 Logo</button>

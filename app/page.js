@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Quotation from "./Quotation";
 import { MAX_QUANTITY, MAX_UNIT_PRICE, lineCents, moneyToCents } from "./quotation-utils";
 import { canShareFile, downloadFile } from "./share";
-import { imageToWebP } from "./images";
+import { prepareUploadImage } from "./images";
 import { createProductCard } from "./product-card";
 import { CATALOG_KEY, QUOTATION_KEY, DETAILS_KEY, DEFAULT_COMPANY,
   readStoredJson, validCatalog, validQuotation, validDetails } from "./storage";
@@ -283,7 +283,7 @@ export default function Home() {
     setImageLoading(true);
     setFormError("");
     try {
-      const converted = await imageToWebP(file);
+      const converted = await prepareUploadImage(file);
       if (imageUploadToken.current === token) setImage(converted);
     } catch (err) {
       if (imageUploadToken.current === token) setFormError(err.message || "图片转换失败，请重试。");
@@ -559,14 +559,14 @@ export default function Home() {
                 照片
                 <input
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     e.target.value = "";
                     onImageChange(file);
                   }}
                 />
-                <small>JPG、JPEG、PNG 或 WebP，最大 12MB。保存时自动压缩为 WebP。</small>
+                <small>JPG、PNG、WebP 或 HEIC，最大 12MB。自动缩小图片并选择兼容格式；HEIC 需浏览器支持读取。</small>
               </label>
 
               {image && <img className="preview" src={image} alt="预览" />}

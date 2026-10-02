@@ -14,6 +14,11 @@ npm run dev
 
 Open http://localhost:3000. Use `npm run build` for a production build.
 
+Run `npm test` for image-upload compatibility regression checks. Before release,
+verify photo and transparent-logo uploads on Android Chrome and iPhone Safari,
+including saving, refreshing, product-card download, and quotation PDF generation.
+Browser simulations cover WebP fallback, but do not replace physical-device checks.
+
 ## Deploy to Vercel
 
 Import the GitHub repository as a Next.js project and deploy. To update from a
@@ -36,18 +41,22 @@ the device; no server upload, WhatsApp API, or Supabase connection is required.
   and logo appear when configured. Fresh installs have generic sample products;
   existing products are never renamed or replaced with samples.
 
-## WebP image storage
+## Mobile image uploads
 
-- Product uploads accept JPG/JPEG, PNG, and WebP, up to 12MB / 40 megapixels.
+- Product uploads accept JPG/JPEG, PNG, WebP, and HEIC/HEIF, up to 12MB /
+  40 megapixels. HEIC/HEIF requires browser decoding support; otherwise a clear
+  message asks the user to export JPG or upload a screenshot.
 - The browser decodes image orientation, fits the longest side within 1600px
-  without upscaling, and encodes WebP at quality 0.82. PNG transparency is kept.
-- Only the resulting WebP Data URL is saved. A progress state prevents saving
+  without upscaling, and prefers WebP at quality 0.82. If WebP encoding fails,
+  photos fall back to JPEG (then PNG if necessary); PNG/WebP sources fall back
+  to PNG to preserve transparency. The Data URL records the actual output format.
+- Only the processed image Data URL is saved. A progress state prevents saving
   before conversion completes. Closing/reopening a form discards pending results.
 - Invalid, oversized, or unsupported images show an error; the previous photo
-  stays intact. Browsers without WebP encoding must use a supported browser;
-  the tool never silently stores PNG under a WebP filename.
+  stays intact. Browsers without WebP encoding use compatible formats automatically;
+  failed encodes are distinguished from unreadable files in the error messages.
 - Existing photos remain in their original format until replaced. Company logo
-  uploads (PNG/JPG/WebP, under 1MB) also convert to WebP.
+  uploads (up to 1MB) use the same conversion and compatibility handling.
 - LocalStorage has a browser-dependent capacity. Failed saves show a warning;
   keep the page open until the data can be saved. Clearing browser data removes
   local products and quotations.
