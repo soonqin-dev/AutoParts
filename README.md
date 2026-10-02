@@ -120,5 +120,20 @@ with samples or an empty draft. Storage capacity must accommodate the new copy
 and the retained backup. A different domain, protocol, or port has separate
 LocalStorage; automatic migration cannot read another origin's data.
 
-Supabase and login remain future work. This is a catalog and quotation tool;
+## Supabase connection setup
+
+Copy `.env.example` to `.env.local` and fill in the Project URL and publishable
+key. `.env.local` is ignored by Git. Set the same two variables in the Vercel
+project's environment variables and redeploy when they change. Never put a secret
+or service-role key in a `NEXT_PUBLIC_` variable.
+
+Run `npm run check:supabase` to verify the Auth endpoint accepts the connection
+details. This read-only check does not create users or modify database data.
+The browser client utility is in `lib/supabase/client.js` for the upcoming login
+and cloud-data features. Those features are not active yet: products, quotation
+drafts, and company settings still use LocalStorage until migration is implemented.
+Company tables, explicit grants, RLS policies, storage policies, and session
+refresh middleware must be implemented before enabling cloud features.
+
+This is a catalog and quotation tool;
 inventory, POS checkout, payments, invoices, accounting, and ERP are out of scope.
