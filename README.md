@@ -24,6 +24,11 @@ verify photo and transparent-logo uploads on Android Chrome and iPhone Safari,
 including saving, refreshing, product-card download, and quotation PDF generation.
 Browser simulations cover WebP fallback, but do not replace physical-device checks.
 
+`npm test` also runs the SalesGo SQL migrations in an in-memory PostgreSQL engine
+(PGlite) with platform Auth/Storage schema stubs and exercises two-company RLS,
+admin/sales access, disabled/anonymous accounts, optimistic revisions, import
+deduplication and image cleanup. These tests do not connect to the live project.
+
 ## Deploy to Vercel
 
 Import the GitHub repository as a Next.js project and deploy. Push the tested
@@ -154,10 +159,60 @@ existing company without reactivating a disabled membership. Members can read
 their own active membership and its company only. Invitations, roster management,
 company editing, password recovery, quotas, and billing are not implemented yet.
 
-Products, photos, quotation drafts, and quotation company branding remain in
-LocalStorage and are not partitioned by signed-in user. Sign-out does not erase
-these records; do not treat shared-device local data as private company data.
-Cloud product/quotation migration and Storage policies are a separate next step.
+The home route remains the local catalog. `/cloud` is the separate company
+catalog, also linked from the account page. Apply the NEW migration
+`supabase/migrations/202610040001_cloud_products.sql` once in SQL Editor as
+postgres, after the company-accounts migration. Do not rerun the earlier migration.
+The new migration creates `products`, its explicit grants/RLS, and the private
+`salesgo-products` Storage bucket (5MB per processed image, WebP/JPEG/PNG only).
+It does not edit existing users, companies, memberships, or local product data.
+Run `supabase/tests/company_isolation.sql` separately afterwards to verify the
+live database rules. Its synthetic test records are rolled back, it sends no
+emails, and it does not create or delete physical Storage files. If it fails,
+stop and inspect the error before enabling the cloud workflow.
+
+Cloud product reads require active company membership. Only admins can insert,
+update, soft-delete or import; sales can read/search/share and add local quotation
+lines. Ownership, import keys and revision metadata are not writable by API
+clients. A revision check prevents overwriting a newer device's edit. Other
+devices see changes on refresh (not realtime). Cloud failures never silently
+switch to the local catalog, and cloud product rows are not saved to LocalStorage.
+Supabase still enforces permissions if the browser UI is bypassed.
+
+Images have company/product/unique-file paths and are uploaded without overwrite.
+The app requests five-minute signed links and periodically rechecks membership
+and renews links. Private does NOT mean previously issued URLs can be revoked:
+an existing link remains usable until expiry, and downloaded/shared images cannot
+be recalled. Canvas loading uses anonymous CORS so cloud photos can be included
+in JPG share cards. Replacements and deletion clean up unreferenced images through
+Storage API; RLS blocks deletion of files referenced by live products. Cleanup
+failures are shown as warnings and may require later storage housekeeping.
+
+Import is explicit: preview local records, optionally download a JSON backup,
+then confirm the named target company. Source IDs and deterministic company-scoped
+UUIDs make retries skip already imported records (including tombstones). Existing
+product numbers conflict rather than overwriting data. Failed rows are reported
+and can be retried. Local originals are never erased; editing local records after
+import does not update their cloud copies. A deleted cloud record retains its
+import key for deduplication; no restore/permanent-purge workflow exists yet.
+
+Local products, quotation drafts and quotation branding remain in LocalStorage
+and are not partitioned by signed-in user. Sign-out does not erase these records;
+do not treat shared-device local data as private company data. Cloud product cards
+use the active company's name, while quotations still use manually entered local
+branding. Cloud quotations, cloud branding/logo, invitations, offline editing,
+quotas, and realtime updates are separate future work.
+
+Optional browser acceptance: start the production server, then run
+`node scripts/test-cloud-browser.cjs` with Playwright available. Set
+`SALESGO_PLAYWRIGHT_MODULE` to an existing Playwright package path if needed;
+`SALESGO_BROWSER_CHANNEL` defaults to `msedge` and `SALESGO_TEST_URL` defaults to
+`http://localhost:3000`. All Supabase requests are mocked. It covers cloud CRUD,
+private-image cards, save failure/retry, backup/import/deduplication, second-device
+reads, isolated UI, sales/disabled accounts, stale writes, and local preservation.
+Finish rollout with real phone upload/card/PDF checks, two real test companies,
+and confirmation that an unauthenticated public bucket URL cannot display images.
+
 Any future server-protected pages will also need server session validation and
 session refresh middleware before deployment.
 

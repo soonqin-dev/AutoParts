@@ -97,7 +97,7 @@ export default function AccountPage() {
   return <main className="page accountPage">
     <Link href="/">← 返回产品目录</Link>
     <h1>SalesGo 公司账号</h1>
-    <div className="notice">当前仅启用账号与公司资料。产品、图片、报价和报价中的公司品牌仍保存在此浏览器，尚未云端同步。退出登录不会删除本地资料；共用设备上的其他使用者仍可能看到这些资料。</div>
+    <div className="notice">公司云端产品与本地产品分开使用。报价和报价品牌仍保存在此浏览器，尚未云端同步。退出登录不会删除本地资料；共用设备上的其他使用者仍可能看到本地资料。</div>
     {error && <p className="accountError" role="alert">{error}</p>}
     {message && <p className="notice" role="status">{message}</p>}
     {loading ? <p role="status">正在读取账号…</p> : user ? <section className="accountCard">
@@ -108,7 +108,8 @@ export default function AccountPage() {
           <strong>{member.companies?.name || "公司资料暂不可用"}</strong>
           <p>角色：{member.role === "admin" ? "管理员" : "销售员"}</p>
         </div>)}
-        <p>员工邀请与云端产品管理将在下一步加入。</p>
+        <p><Link href="/cloud">进入公司云端产品 →</Link></p>
+        <p>员工邀请尚未开放。</p>
       </> : <form onSubmit={event => {
         event.preventDefault();
         void perform(async client => {

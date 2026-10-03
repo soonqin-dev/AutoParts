@@ -4,6 +4,7 @@ const MAX_IMAGE_SIDE = 1600;
 
 export async function loadImage(source) {
   const image = new Image();
+  if (/^https?:\/\//i.test(source)) image.crossOrigin = "anonymous";
   image.src = source;
   await image.decode();
   if (!image.naturalWidth || !image.naturalHeight) throw new Error("无效图片");
