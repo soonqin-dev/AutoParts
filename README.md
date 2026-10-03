@@ -7,6 +7,11 @@ products, show details, share a complete product card, and generate quotations.
 
 ## Run locally
 
+Use Node.js 24.x. Framework versions are pinned to Next.js 16.3.8 and
+React/React DOM 19.3.0; commit `package-lock.json` with dependency updates.
+The default development and production compiler is Turbopack. Supported browser
+minimums are Safari 16.4+, Chrome/Edge 111+, and Firefox 111+.
+
 ```bash
 npm install
 npm run dev
@@ -21,10 +26,11 @@ Browser simulations cover WebP fallback, but do not replace physical-device chec
 
 ## Deploy to Vercel
 
-Import the GitHub repository as a Next.js project and deploy. To update from a
-phone, unzip the release package, upload its `app` files into the repository's
-`app` directory, then upload `package.json` and `README.md` at the repository root.
-Commit the files; a connected Vercel project will deploy the update.
+Import the GitHub repository as a Next.js project and deploy. Push the tested
+commit to GitHub; a connected Vercel project will deploy the update. Verify the
+deployment commit matches your latest commit. The `engines.node` field pins the
+Vercel runtime to Node.js 24.x. Keep build/install defaults and the committed
+lockfile; do not overwrite newer files with an older release ZIP.
 
 The tool uses Next.js 14, React, and LocalStorage. The repository name does not
 determine the displayed brand. All image processing and PDF generation run on
